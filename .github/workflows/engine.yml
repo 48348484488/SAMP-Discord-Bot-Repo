@@ -112,11 +112,15 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # 3. Ativar o Cache Oficial do Gradle (Java/Dependências)
+      # 3. Configurar Android SDK
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
+
+      # 4. Ativar o Cache Oficial do Gradle (Java/Dependências)
       - name: Setup Gradle Cache
         uses: gradle/actions/setup-gradle@v3
 
-      # 4. Cache Exclusivo para o Código C/C++ Nativo (NDK)
+      # 5. Cache Exclusivo para o Código C/C++ Nativo (NDK)
       - name: Cache C/C++ Build (NDK)
         uses: actions/cache@v4
         with:
@@ -125,18 +129,20 @@ jobs:
           restore-keys: |
             ndk-cache-${{ runner.os }}-
 
-      # 5. Compilar o Projeto com controle de memória (Prevenção de OOM)
+      # 6. Compilar o Projeto com controle de memória (Prevenção de OOM)
       - name: Compilar APK (Debug)
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.daemon=false"
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
         run: |
-          if [ -f "./gradlew" ]; then
+          if [ ! -f "./gradlew" ]; then
+            echo "⚠️ gradlew não encontrado. Gerando wrapper com Gradle instalado..."
+            gradle wrapper
             chmod +x ./gradlew
-            ./gradlew assembleDebug
           else
-            echo "Aviso: ./gradlew não encontrado. Utilizando Gradle global..."
-            gradle assembleDebug
+            chmod +x ./gradlew
           fi
+          ./gradlew assembleDebug
 
       # 6. Mapeamento de Log para Debug
       - name: Localizar APK Gerado
