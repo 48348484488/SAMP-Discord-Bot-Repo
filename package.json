@@ -1,0 +1,28 @@
+{
+  "name": "samp-discord-bot-cloudflare",
+  "version": "1.0.0",
+  "description": "Discord Bot Serverless para compilar APK",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "discord-interactions": "^4.1.0"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/48348484488/SAMP-Discord-Bot-Repo.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/48348484488/SAMP-Discord-Bot-Repo/issues"
+  },
+  "homepage": "https://github.com/48348484488/SAMP-Discord-Bot-Repo#readme"
+}

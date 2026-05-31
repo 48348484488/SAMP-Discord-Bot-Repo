@@ -1,0 +1,7 @@
+name = "samp-compiler-bot"
+main = "src/index.js"
+compatibility_date = "2023-10-30"
+
+[vars]
+GITHUB_USER = "48348484488"
+GITHUB_REPO = "SAMP-Discord-Bot-Repo"
