@@ -81,7 +81,38 @@ jobs:
           fi
           
           echo "Buscando a raiz do projeto (onde está o Gradle)..."
-          PROJECT_ROOT=$(find temp_extract -type f \( -name "gradlew" -o -name "build.gradle" \) | head -n 1 | xargs -I {} dirname "{}")
+          CANDIDATES=$(find temp_extract -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" -o -name "gradlew" -o -name "build.gradle" -o -name "build.gradle.kts" \))
+          
+          PROJECT_ROOT=""
+          BEST_DEPTH=9999
+          BEST_TYPE=4
+          
+          while read -r file; do
+            [ -z "$file" ] && continue
+            dir=$(dirname "$file")
+            # Conta o número de barras para medir a profundidade do caminho
+            temp_dir="${dir//[^\/]/}"
+            depth="${#temp_dir}"
+            
+            filename=$(basename "$file")
+            type_weight=3
+            if [[ "$filename" == "settings.gradle"* ]]; then
+              type_weight=1
+            elif [[ "$filename" == "gradlew" ]]; then
+              type_weight=2
+            fi
+            
+            if [ "$depth" -lt "$BEST_DEPTH" ]; then
+              BEST_DEPTH=$depth
+              BEST_TYPE=$type_weight
+              PROJECT_ROOT=$dir
+            elif [ "$depth" -eq "$BEST_DEPTH" ]; then
+              if [ "$type_weight" -lt "$BEST_TYPE" ]; then
+                BEST_TYPE=$type_weight
+                PROJECT_ROOT=$dir
+              fi
+            fi
+          done <<< "$CANDIDATES"
           
           if [ -z "$PROJECT_ROOT" ]; then
             echo "::error::[ERRO ESTRUTURAL] Nenhum projeto Gradle (gradlew ou build.gradle) foi encontrado no ZIP!"
