@@ -151,6 +151,7 @@ jobs:
             # Gera o wrapper num diretório limpo (sem build.gradle do projeto)
             TMPDIR=$(mktemp -d)
             cd "$TMPDIR"
+            touch settings.gradle  # Necessário para Gradle 9.x reconhecer como projeto válido
             gradle wrapper --gradle-version "$GRADLE_VERSION"
             
             # Copia o wrapper para o projeto
