@@ -129,7 +129,14 @@ jobs:
       - name: Compilar APK (Debug)
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.daemon=false"
-        run: ./gradlew assembleDebug
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            ./gradlew assembleDebug
+          else
+            echo "Aviso: ./gradlew não encontrado. Utilizando Gradle global..."
+            gradle assembleDebug
+          fi
 
       # 6. Mapeamento de Log para Debug
       - name: Localizar APK Gerado

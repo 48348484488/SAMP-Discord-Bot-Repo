@@ -127,10 +127,36 @@ export default {
         // Executamos a criação do canal em background para responder ao Discord antes do timeout de 3 segundos
         ctx.waitUntil((async () => {
           try {
-            // Obter e incrementar o contador do KV Store
-            let ticketCount = parseInt(await env.TICKETS.get("ticket_count") || "0");
-            ticketCount += 1;
-            await env.TICKETS.put("ticket_count", ticketCount.toString());
+            // Conta quantos canais ativos existem na categoria para definir o número do ticket
+            const channelsRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
+              headers: {
+                'Authorization': `Bot ${env.DISCORD_BOT_TOKEN}`
+              }
+            });
+            let ticketNumber = 1;
+            if (channelsRes.ok) {
+              const channels = await channelsRes.json();
+              const activeTickets = channels.filter(c => c.parent_id === '1510734520553308160');
+              
+              // Verifica se o usuário já tem um ticket aberto na categoria
+              const userAlreadyHasTicket = activeTickets.some(channel => 
+                channel.permission_overwrites && 
+                channel.permission_overwrites.some(overwrite => overwrite.id === userId)
+              );
+
+              if (userAlreadyHasTicket) {
+                await fetch(`https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    content: '❌ **Você já possui um ticket de compilação aberto!** Por favor, feche-o antes de tentar abrir um novo.'
+                  })
+                });
+                return; // Interrompe a criação de um novo ticket
+              }
+
+              ticketNumber = activeTickets.length + 1;
+            }
 
             // Criação do Canal Privado via Discord REST API
             const createChannelRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
@@ -140,7 +166,7 @@ export default {
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
-                name: `【🔨】ᴄᴏᴍᴘɪʟᴀʀ-${ticketCount}`,
+                name: `【🔨】ᴄᴏᴍᴘɪʟᴀʀ-${ticketNumber}`,
                 type: 0, // Guild Text Channel
                 parent_id: '1510734520553308160', // Categoria correta
                 permission_overwrites: [
@@ -356,7 +382,7 @@ export default {
         return Response.json({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
-            content: `💻 **COMPILAÇÃO INICIADA!**\n\n📡 Conectando aos servidores do GitHub...\n🔗 **Source Code:** ${zipUrl}\n\n_Quando a compilação terminar (em média 15 a 40 minutos), enviarei o link do APK final aqui mesmo neste canal!_`
+            content: `💻 **COMPILAÇÃO INICIADA!**\n\n📡 Conectando aos servidores do GitHub...\n🔗 **Source Code:** <${zipUrl}>\n\n_Quando a compilação terminar (em média 15 a 40 minutos), enviarei o link do APK final aqui mesmo neste canal!_`
           }
         });
       }
