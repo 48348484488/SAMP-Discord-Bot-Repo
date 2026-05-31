@@ -135,13 +135,33 @@ jobs:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.daemon=false"
           ANDROID_HOME: ${{ env.ANDROID_HOME }}
         run: |
+          PROJECT_DIR=$(pwd)
+          
           if [ ! -f "./gradlew" ]; then
-            echo "⚠️ gradlew não encontrado. Gerando wrapper com Gradle instalado..."
-            gradle wrapper
+            echo "⚠️ gradlew não encontrado. Gerando wrapper em diretório isolado..."
+            
+            # Detecta a versão do Gradle nos arquivos do projeto (se existir)
+            GRADLE_VERSION="8.7"
+            if [ -f "gradle/wrapper/gradle-wrapper.properties" ]; then
+              DETECTED=$(grep "distributionUrl" gradle/wrapper/gradle-wrapper.properties | grep -oE "gradle-[0-9]+\.[0-9]+(\.[0-9]+)?-" | grep -oE "[0-9]+\.[0-9]+(\.[0-9]+)?" | head -n 1)
+              [ -n "$DETECTED" ] && GRADLE_VERSION="$DETECTED"
+            fi
+            echo "Usando Gradle $GRADLE_VERSION para gerar o wrapper..."
+            
+            # Gera o wrapper num diretório limpo (sem build.gradle do projeto)
+            TMPDIR=$(mktemp -d)
+            cd "$TMPDIR"
+            gradle wrapper --gradle-version "$GRADLE_VERSION"
+            
+            # Copia o wrapper para o projeto
+            cp gradlew "$PROJECT_DIR/gradlew"
+            cp -r gradle "$PROJECT_DIR/"
+            cd "$PROJECT_DIR"
             chmod +x ./gradlew
           else
             chmod +x ./gradlew
           fi
+          
           ./gradlew assembleDebug
 
       # 6. Mapeamento de Log para Debug
