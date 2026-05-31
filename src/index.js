@@ -2,6 +2,7 @@ import { InteractionType, InteractionResponseType, verifyKey } from 'discord-int
 
 export default {
   async fetch(request, env, ctx) {
+    console.log('Receiving request:', request.method, request.url);
     if (request.method !== 'POST') {
       return new Response('Not Found', { status: 404 });
     }
@@ -9,12 +10,16 @@ export default {
     const signature = request.headers.get('x-signature-ed25519');
     const timestamp = request.headers.get('x-signature-timestamp');
     const body = await request.clone().text();
+    
+    console.log('Validating signature with key:', env.DISCORD_PUBLIC_KEY ? 'EXISTS' : 'MISSING');
 
     const isValidRequest = await verifyKey(body, signature, timestamp, env.DISCORD_PUBLIC_KEY);
     if (!isValidRequest) {
+      console.log('Signature validation FAILED');
       return new Response('Bad request signature.', { status: 401 });
     }
-
+    
+    console.log('Signature validation SUCCESS');
     const interaction = JSON.parse(body);
 
     // Responde ao PING de verificação do Discord
@@ -122,6 +127,11 @@ export default {
         // Executamos a criação do canal em background para responder ao Discord antes do timeout de 3 segundos
         ctx.waitUntil((async () => {
           try {
+            // Obter e incrementar o contador do KV Store
+            let ticketCount = parseInt(await env.TICKETS.get("ticket_count") || "0");
+            ticketCount += 1;
+            await env.TICKETS.put("ticket_count", ticketCount.toString());
+
             // Criação do Canal Privado via Discord REST API
             const createChannelRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
               method: 'POST',
@@ -130,8 +140,9 @@ export default {
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
-                name: `🎫-ticket-${username}`,
+                name: `【🔨】ᴄᴏᴍᴘɪʟᴀʀ-${ticketCount}`,
                 type: 0, // Guild Text Channel
+                parent_id: '1510734520553308160', // Categoria correta
                 permission_overwrites: [
                   {
                     id: guildId, // @everyone role
@@ -180,6 +191,15 @@ export default {
                         emoji: {
                           name: '🔨'
                         }
+                      },
+                      {
+                        type: 2,
+                        style: 4, // Botão vermelho (Danger)
+                        label: 'Fechar Ticket',
+                        custom_id: 'fechar_ticket',
+                        emoji: {
+                          name: '🔒'
+                        }
                       }
                     ]
                   }
@@ -220,7 +240,7 @@ export default {
 
       // Clique em "Compilar APK" dentro do Ticket
       if (custom_id === 'compilar_apk') {
-        // Retorna o Modal pedindo a URL da source
+        // Retorna o Modal pedindo a URL da source e a senha
         return Response.json({
           type: 9, // MODAL
           data: {
@@ -239,8 +259,45 @@ export default {
                     required: true
                   }
                 ]
+              },
+              {
+                type: 1,
+                components: [
+                  {
+                    type: 4, // TEXT_INPUT
+                    custom_id: 'zip_password_input',
+                    label: 'Senha do .zip (Deixe em branco se não tiver)',
+                    style: 1, // Short text/Single line
+                    placeholder: 'Senha secreta para extrair (opcional)',
+                    required: false
+                  }
+                ]
               }
             ]
+          }
+        });
+      }
+
+      // Clique em "Fechar Ticket"
+      if (custom_id === 'fechar_ticket') {
+        const channelId = interaction.channel_id;
+        
+        // Deleta o canal após um pequeno atraso
+        ctx.waitUntil(
+          new Promise(resolve => setTimeout(resolve, 3000)).then(() =>
+            fetch(`https://discord.com/api/v10/channels/${channelId}`, {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bot ${env.DISCORD_BOT_TOKEN}`
+              }
+            })
+          )
+        );
+
+        return Response.json({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: '🔒 Este ticket será fechado e deletado em alguns segundos...'
           }
         });
       }
@@ -252,9 +309,11 @@ export default {
 
       if (custom_id === 'modal_compilar') {
         // Encontra o valor digitado no input do modal
-        const actionRow = components[0];
-        const textInput = actionRow.components[0];
-        const zipUrl = textInput.value;
+        const urlActionRow = components.find(row => row.components[0].custom_id === 'zip_url_input');
+        const passActionRow = components.find(row => row.components[0].custom_id === 'zip_password_input');
+        
+        const zipUrl = urlActionRow.components[0].value;
+        const zipPassword = passActionRow ? passActionRow.components[0].value : '';
 
         if (!zipUrl || (!zipUrl.startsWith('http://') && !zipUrl.startsWith('https://'))) {
           return Response.json({
@@ -280,6 +339,7 @@ export default {
               ref: 'main',
               inputs: {
                 zip_url: zipUrl.trim(),
+                zip_password: zipPassword.trim(),
                 channel_id: interaction.channel_id
               }
             })

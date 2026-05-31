@@ -7,6 +7,10 @@ on:
         description: 'Link direto ou MediaFire da Source Code (.zip)'
         required: true
         type: string
+      zip_password:
+        description: 'Senha do arquivo ZIP (se houver)'
+        required: false
+        type: string
       channel_id:
         description: 'ID do canal privado (ticket) para entregar o APK'
         required: true
@@ -25,6 +29,7 @@ jobs:
           echo "=============================================="
           
           INPUT_URL="${{ github.event.inputs.zip_url }}"
+          ZIP_PASSWORD="${{ github.event.inputs.zip_password }}"
           USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
           
           # Tratamento avançado para MediaFire
@@ -55,15 +60,25 @@ jobs:
           fi
           
           echo "Validando integridade do arquivo ZIP..."
-          if ! unzip -t source.zip > /dev/null 2>&1; then
-            echo "::error::[ERRO DE ARQUIVO] O arquivo baixado não é um ZIP válido ou está corrompido!"
-            head -n 10 source.zip || true
-            exit 1
+          if [ -n "$ZIP_PASSWORD" ]; then
+            echo "🔒 Senha detectada. Testando extração segura..."
+            if ! unzip -P "$ZIP_PASSWORD" -t source.zip > /dev/null 2>&1; then
+              echo "::error::[ERRO] A senha está incorreta ou o arquivo está corrompido!"
+              exit 1
+            fi
+            echo "Arquivo validado. Extraindo para diretório temporário..."
+            mkdir -p temp_extract
+            unzip -P "$ZIP_PASSWORD" -q source.zip -d temp_extract
+          else
+            if ! unzip -t source.zip > /dev/null 2>&1; then
+              echo "::error::[ERRO DE ARQUIVO] O arquivo baixado não é um ZIP válido ou está corrompido!"
+              head -n 10 source.zip || true
+              exit 1
+            fi
+            echo "Arquivo validado. Extraindo para diretório temporário..."
+            mkdir -p temp_extract
+            unzip -q source.zip -d temp_extract
           fi
-          
-          echo "Arquivo validado. Extraindo para diretório temporário..."
-          mkdir -p temp_extract
-          unzip -q source.zip -d temp_extract
           
           echo "Buscando a raiz do projeto (onde está o Gradle)..."
           PROJECT_ROOT=$(find temp_extract -type f \( -name "gradlew" -o -name "build.gradle" \) | head -n 1 | xargs -I {} dirname "{}")
