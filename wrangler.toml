@@ -9,3 +9,6 @@ GITHUB_REPO = "SAMP-Discord-Bot-Repo"
 [[kv_namespaces]]
 binding = "TICKETS"
 id = "038fa2ca0b7e4b5c8189df0b4ba6a4fc"
+
+[triggers]
+crons = ["0 * * * *"]

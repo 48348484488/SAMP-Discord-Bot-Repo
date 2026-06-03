@@ -514,5 +514,76 @@ export default {
     }
 
     return new Response('Unknown Type', { status: 400 });
+  },
+
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(cleanupTickets(env));
   }
 };
+
+async function cleanupTickets(env) {
+  if (!env.DISCORD_BOT_TOKEN) {
+    console.error('cleanupTickets: DISCORD_BOT_TOKEN is missing');
+    return;
+  }
+  try {
+    const guildsRes = await fetch('https://discord.com/api/v10/users/@me/guilds', {
+      headers: { 'Authorization': `Bot ${env.DISCORD_BOT_TOKEN}` }
+    });
+    if (!guildsRes.ok) {
+      console.error('cleanupTickets: Failed to fetch guilds', guildsRes.statusText);
+      return;
+    }
+    const guilds = await guildsRes.json();
+
+    for (const guild of guilds) {
+      const channelsRes = await fetch(`https://discord.com/api/v10/guilds/${guild.id}/channels`, {
+        headers: { 'Authorization': `Bot ${env.DISCORD_BOT_TOKEN}` }
+      });
+      if (!channelsRes.ok) {
+        console.error(`cleanupTickets: Failed to fetch channels for guild ${guild.id}`);
+        continue;
+      }
+      const channels = await channelsRes.json();
+      const ticketChannels = channels.filter(c => c.parent_id === '1510734520553308160');
+
+      for (const channel of ticketChannels) {
+        const messagesRes = await fetch(`https://discord.com/api/v10/channels/${channel.id}/messages?limit=1`, {
+          headers: { 'Authorization': `Bot ${env.DISCORD_BOT_TOKEN}` }
+        });
+        if (!messagesRes.ok) {
+          console.error(`cleanupTickets: Failed to fetch messages for channel ${channel.id}`);
+          continue;
+        }
+        const messages = await messagesRes.json();
+
+        let lastMessageTime = 0;
+        if (messages.length > 0) {
+          lastMessageTime = new Date(messages[0].timestamp).getTime();
+        } else {
+          // Fallback: Decripta o ID do canal (Snowflake do Discord) para saber a data de criação
+          const idInt = BigInt(channel.id);
+          lastMessageTime = Number((idInt >> 22n) + 1420070400000n);
+        }
+
+        const hoursInactive = (Date.now() - lastMessageTime) / (1000 * 60 * 60);
+
+        if (hoursInactive >= 24) {
+          console.log(`cleanupTickets: Deletando ticket inativo: ${channel.name} (${channel.id}), inativo por ${hoursInactive.toFixed(1)} horas.`);
+          const deleteRes = await fetch(`https://discord.com/api/v10/channels/${channel.id}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bot ${env.DISCORD_BOT_TOKEN}`,
+              'X-Audit-Log-Reason': 'Limpeza automática de tickets inativos'
+            }
+          });
+          if (!deleteRes.ok) {
+            console.error(`cleanupTickets: Failed to delete channel ${channel.id}`);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('cleanupTickets: Unhandled error in cleanup', err);
+  }
+}

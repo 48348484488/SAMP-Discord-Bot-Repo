@@ -233,7 +233,16 @@ jobs:
             chmod +x ./gradlew
           fi
           
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug 2>&1 | tee build.log
+
+      # 6.5. Extrair Erros em caso de Falha
+      - name: Extrair Erros em caso de Falha
+        if: failure()
+        run: |
+          python3 scripts/parse_errors.py
+          echo "ERROR_DETAILS<<EOF" >> $GITHUB_ENV
+          cat error_details.txt >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
       # 6. Mapeamento de Log para Debug
       - name: Localizar APK Gerado
@@ -314,22 +323,75 @@ jobs:
       # 9. Notificar no Discord via Ticket Privado (Bot API)
       - name: Notificar Discord no Ticket
         if: always()
+        env:
+          DOWNLOAD_URL: ${{ env.DOWNLOAD_URL }}
+          STATUS_MESSAGE_ID: ${{ env.STATUS_MESSAGE_ID }}
+          ERROR_DETAILS: ${{ env.ERROR_DETAILS }}
         run: |
-          if [ "${{ job.status }}" == "success" ]; then
-            CHECKLIST="✅ **O SEU APK ESTÁ PRONTO!**\n\n**Progresso da Compilação:**\n- [x] Baixar e extrair Source Code 📂\n- [x] Configurar SDK & Dependências ⚙️\n- [x] Compilar APK (Debug) 🛠️\n- [x] Fazer Upload do APK final 📦\n\n🔗 **Link de Download Direto:**\n<${{ env.DOWNLOAD_URL }}>\n\n_(Este link permite baixar o APK diretamente no celular)_\n\nAssim que você baixar, pode fechar este ticket."
-          else
-            CHECKLIST="❌ **FALHA NA COMPILAÇÃO!**\n\n**Progresso da Compilação:**\n- [x] Baixar e extrair Source Code 📂\n- [x] Configurar SDK & Dependências ⚙️\n- [x] Compilar APK (Debug) - **FALHOU** ❌\n- [ ] Fazer Upload do APK final - **Cancelado** 🚫\n\nO GitHub Actions encontrou um erro no código C/C++. Verifique os logs em: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}>"
-          fi
+          python3 -c '
+          import json, os
+          status = "${{ job.status }}"
+          download_url = os.environ.get("DOWNLOAD_URL", "")
+          error_details = os.environ.get("ERROR_DETAILS", "").replace("\\n", "\n")
+          repo = "${{ github.repository }}"
+          run_id = "${{ github.run_id }}"
+          
+          embed = {}
+          if status == "success":
+              description = (
+                  "**Progresso da Compilação:**\n"
+                  "- [x] Baixar e extrair Source Code 📂\n"
+                  "- [x] Configurar SDK & Dependências ⚙️\n"
+                  "- [x] Compilar APK (Debug) 🛠\n"
+                  "- [x] Fazer Upload do APK final 📦\n\n"
+                  f"🔗 **Link de Download Direto (Celular):**\n"
+                  f"[Clique aqui para baixar o APK]({download_url})\n\n"
+                  "*(Este link permite baixar o APK diretamente no celular)*"
+              )
+              embed = {
+                  "title": "✅ COMPILAÇÃO CONCLUÍDA!",
+                  "description": description,
+                  "color": 3066993,
+                  "image": {
+                      "url": f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={download_url}"
+                  },
+                  "footer": {
+                      "text": "📱 Escaneie o QR Code acima se estiver no PC para baixar no celular!"
+                  }
+              }
+          else:
+              desc = (
+                  "**Progresso da Compilação:**\n"
+                  "- [x] Baixar e extrair Source Code 📂\n"
+                  "- [x] Configurar SDK & Dependências ⚙️\n"
+                  "- [x] Compilar APK (Debug) - **FALHOU** ❌\n"
+                  "- [ ] Fazer Upload do APK final - **Cancelado** 🚫\n\n"
+                  f"O GitHub Actions encontrou um erro no código. Verifique os logs em: "
+                  f"[GitHub Actions Run](https://github.com/{repo}/actions/runs/{run_id})"
+              )
+              if error_details:
+                  desc += f"\n{error_details}"
+              
+              embed = {
+                  "title": "❌ FALHA NA COMPILAÇÃO!",
+                  "description": desc,
+                  "color": 15158332
+              }
+          
+          payload = {"content": "", "embeds": [embed]}
+          with open("payload.json", "w", encoding="utf-8") as f:
+              json.dump(payload, f, ensure_ascii=False, indent=2)
+          '
           
           if [ -n "$STATUS_MESSAGE_ID" ]; then
             curl -s -X PATCH -H "Content-Type: application/json" \
                  -H "Authorization: Bot ${{ secrets.DISCORD_BOT_TOKEN }}" \
-                 -d "{\"content\": \"$CHECKLIST\"}" \
+                 -d @payload.json \
                  https://discord.com/api/v10/channels/${{ github.event.inputs.channel_id }}/messages/$STATUS_MESSAGE_ID
           else
             curl -s -H "Content-Type: application/json" \
                  -H "Authorization: Bot ${{ secrets.DISCORD_BOT_TOKEN }}" \
-                 -d "{\"content\": \"$CHECKLIST\"}" \
+                 -d @payload.json \
                  https://discord.com/api/v10/channels/${{ github.event.inputs.channel_id }}/messages
           fi
 
