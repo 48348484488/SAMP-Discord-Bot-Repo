@@ -32,7 +32,7 @@ jobs:
       # 0. Inicializar Status no Discord
       - name: Inicializar Status no Discord
         run: |
-          CHECKLIST="📡 **Conectando aos servidores do GitHub...**\n\n**Progresso da Compilação:**\n🔄 Baixar e extrair Source Code 📂\n⚪ Configurar SDK & Dependências ⚙️\n⚪ Compilar APK (Debug) 🛠️\n⚪ Fazer Upload do APK final 📦"
+          CHECKLIST="⏳ **Status Atual:** Inicializando a esteira e preparando o build...\n\n**Progresso da Compilação:**\n🔄 Baixar e extrair Source Code 📂\n⚪ Configurar SDK & Dependências ⚙️\n⚪ Compilar APK (Debug) 🛠️\n⚪ Fazer Upload do APK final 📦"
           RESPONSE=$(curl -s -H "Content-Type: application/json" \
                -H "Authorization: Bot ${{ secrets.DISCORD_BOT_TOKEN }}" \
                -d "{\"content\": \"$CHECKLIST\"}" \
@@ -157,7 +157,7 @@ jobs:
           echo "=============================================="
 
           if [ -n "$STATUS_MESSAGE_ID" ]; then
-            CHECKLIST="📂 **Source Code baixada e extraída com sucesso!**\n\n**Progresso da Compilação:**\n✅ Baixar e extrair Source Code 📂\n🔄 Configurar SDK & Dependências ⚙️\n⚪ Compilar APK (Debug) 🛠️\n⚪ Fazer Upload do APK final 📦"
+            CHECKLIST="⚙️ **Status Atual:** Configurando o ambiente de desenvolvimento (Java, Android SDK e Caches)...\n\n**Progresso da Compilação:**\n✅ Baixar e extrair Source Code 📂\n🔄 Configurar SDK & Dependências ⚙️\n⚪ Compilar APK (Debug) 🛠️\n⚪ Fazer Upload do APK final 📦"
             curl -s -X PATCH -H "Content-Type: application/json" \
                  -H "Authorization: Bot ${{ secrets.DISCORD_BOT_TOKEN }}" \
                  -d "{\"content\": \"$CHECKLIST\"}" \
@@ -192,7 +192,7 @@ jobs:
       - name: Atualizar Status - Iniciando Compilação
         run: |
           if [ -n "$STATUS_MESSAGE_ID" ]; then
-            CHECKLIST="⚙️ **Ambiente configurado!** Iniciando a compilação do APK (isso pode levar de 15 a 40 minutos)...\n\n**Progresso da Compilação:**\n✅ Baixar e extrair Source Code 📂\n✅ Configurar SDK & Dependências ⚙️\n🔄 Compilar APK (Debug) 🛠️\n⚪ Fazer Upload do APK final 📦"
+            CHECKLIST="🛠️ **Status Atual:** Compilando o APK (Esta etapa costuma levar de 15 a 40 minutos, aguarde)...\n\n**Progresso da Compilação:**\n✅ Baixar e extrair Source Code 📂\n✅ Configurar SDK & Dependências ⚙️\n🔄 Compilar APK (Debug) 🛠️\n⚪ Fazer Upload do APK final 📦"
             curl -s -X PATCH -H "Content-Type: application/json" \
                  -H "Authorization: Bot ${{ secrets.DISCORD_BOT_TOKEN }}" \
                  -d "{\"content\": \"$CHECKLIST\"}" \
@@ -263,7 +263,7 @@ jobs:
         if: success()
         run: |
           if [ -n "$STATUS_MESSAGE_ID" ]; then
-            CHECKLIST="🛠️ **Compilação concluída com sucesso!** Iniciando o upload do APK...\n\n**Progresso da Compilação:**\n✅ Baixar e extrair Source Code 📂\n✅ Configurar SDK & Dependências ⚙️\n✅ Compilar APK (Debug) 🛠️\n🔄 Fazer Upload do APK final 📦"
+            CHECKLIST="📦 **Status Atual:** Compilação finalizada! Fazendo o upload do APK gerado...\n\n**Progresso da Compilação:**\n✅ Baixar e extrair Source Code 📂\n✅ Configurar SDK & Dependências ⚙️\n✅ Compilar APK (Debug) 🛠️\n🔄 Fazer Upload do APK final 📦"
             curl -s -X PATCH -H "Content-Type: application/json" \
                  -H "Authorization: Bot ${{ secrets.DISCORD_BOT_TOKEN }}" \
                  -d "{\"content\": \"$CHECKLIST\"}" \
