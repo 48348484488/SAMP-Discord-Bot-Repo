@@ -32,7 +32,7 @@ jobs:
       # 0. Inicializar Status no Discord
       - name: Inicializar Status no Discord
         run: |
-          CHECKLIST="📡 **Conectando aos servidores do GitHub...**\n\n**Progresso da Compilação:**\n- [ ] Baixar e extrair Source Code 📂\n- [ ] Configurar SDK & Dependências ⚙️\n- [ ] Compilar APK (Debug) 🛠️\n- [ ] Fazer Upload do APK final 📦"
+          CHECKLIST="📡 **Conectando aos servidores do GitHub...**\n\n**Progresso da Compilação:**\n🔄 Baixar e extrair Source Code 📂\n⚪ Configurar SDK & Dependências ⚙️\n⚪ Compilar APK (Debug) 🛠️\n⚪ Fazer Upload do APK final 📦"
           RESPONSE=$(curl -s -H "Content-Type: application/json" \
                -H "Authorization: Bot ${{ secrets.DISCORD_BOT_TOKEN }}" \
                -d "{\"content\": \"$CHECKLIST\"}" \
@@ -157,7 +157,7 @@ jobs:
           echo "=============================================="
 
           if [ -n "$STATUS_MESSAGE_ID" ]; then
-            CHECKLIST="📂 **Source Code baixada e extraída com sucesso!**\n\n**Progresso da Compilação:**\n- [x] Baixar e extrair Source Code 📂\n- [/] Configurar SDK & Dependências ⚙️\n- [ ] Compilar APK (Debug) 🛠️\n- [ ] Fazer Upload do APK final 📦"
+            CHECKLIST="📂 **Source Code baixada e extraída com sucesso!**\n\n**Progresso da Compilação:**\n✅ Baixar e extrair Source Code 📂\n🔄 Configurar SDK & Dependências ⚙️\n⚪ Compilar APK (Debug) 🛠️\n⚪ Fazer Upload do APK final 📦"
             curl -s -X PATCH -H "Content-Type: application/json" \
                  -H "Authorization: Bot ${{ secrets.DISCORD_BOT_TOKEN }}" \
                  -d "{\"content\": \"$CHECKLIST\"}" \
@@ -192,7 +192,7 @@ jobs:
       - name: Atualizar Status - Iniciando Compilação
         run: |
           if [ -n "$STATUS_MESSAGE_ID" ]; then
-            CHECKLIST="⚙️ **Ambiente configurado!** Iniciando a compilação do APK (isso pode levar de 15 a 40 minutos)...\n\n**Progresso da Compilação:**\n- [x] Baixar e extrair Source Code 📂\n- [x] Configurar SDK & Dependências ⚙️\n- [/] Compilar APK (Debug) 🛠️\n- [ ] Fazer Upload do APK final 📦"
+            CHECKLIST="⚙️ **Ambiente configurado!** Iniciando a compilação do APK (isso pode levar de 15 a 40 minutos)...\n\n**Progresso da Compilação:**\n✅ Baixar e extrair Source Code 📂\n✅ Configurar SDK & Dependências ⚙️\n🔄 Compilar APK (Debug) 🛠️\n⚪ Fazer Upload do APK final 📦"
             curl -s -X PATCH -H "Content-Type: application/json" \
                  -H "Authorization: Bot ${{ secrets.DISCORD_BOT_TOKEN }}" \
                  -d "{\"content\": \"$CHECKLIST\"}" \
@@ -263,7 +263,7 @@ jobs:
         if: success()
         run: |
           if [ -n "$STATUS_MESSAGE_ID" ]; then
-            CHECKLIST="🛠️ **Compilação concluída com sucesso!** Iniciando o upload do APK...\n\n**Progresso da Compilação:**\n- [x] Baixar e extrair Source Code 📂\n- [x] Configurar SDK & Dependências ⚙️\n- [x] Compilar APK (Debug) 🛠️\n- [/] Fazer Upload do APK final 📦"
+            CHECKLIST="🛠️ **Compilação concluída com sucesso!** Iniciando o upload do APK...\n\n**Progresso da Compilação:**\n✅ Baixar e extrair Source Code 📂\n✅ Configurar SDK & Dependências ⚙️\n✅ Compilar APK (Debug) 🛠️\n🔄 Fazer Upload do APK final 📦"
             curl -s -X PATCH -H "Content-Type: application/json" \
                  -H "Authorization: Bot ${{ secrets.DISCORD_BOT_TOKEN }}" \
                  -d "{\"content\": \"$CHECKLIST\"}" \
@@ -340,10 +340,10 @@ jobs:
           if status == "success":
               description = (
                   "**Progresso da Compilação:**\n"
-                  "- [x] Baixar e extrair Source Code 📂\n"
-                  "- [x] Configurar SDK & Dependências ⚙️\n"
-                  "- [x] Compilar APK (Debug) 🛠\n"
-                  "- [x] Fazer Upload do APK final 📦\n\n"
+                  "✅ Baixar e extrair Source Code 📂\n"
+                  "✅ Configurar SDK & Dependências ⚙️\n"
+                  "✅ Compilar APK (Debug) 🛠️\n"
+                  "✅ Fazer Upload do APK final 📦\n\n"
                   f"🔗 **Link de Download Direto (Celular):**\n"
                   f"[Clique aqui para baixar o APK]({download_url})\n\n"
                   "*(Este link permite baixar o APK diretamente no celular)*"
@@ -362,10 +362,10 @@ jobs:
           else:
               desc = (
                   "**Progresso da Compilação:**\n"
-                  "- [x] Baixar e extrair Source Code 📂\n"
-                  "- [x] Configurar SDK & Dependências ⚙️\n"
-                  "- [x] Compilar APK (Debug) - **FALHOU** ❌\n"
-                  "- [ ] Fazer Upload do APK final - **Cancelado** 🚫\n\n"
+                  "✅ Baixar e extrair Source Code 📂\n"
+                  "✅ Configurar SDK & Dependências ⚙️\n"
+                  "❌ Compilar APK (Debug) - **FALHOU** 🛠️\n"
+                  "🚫 Fazer Upload do APK final - **Cancelado** 📦\n\n"
                   f"O GitHub Actions encontrou um erro no código. Verifique os logs em: "
                   f"[GitHub Actions Run](https://github.com/{repo}/actions/runs/{run_id})"
               )
