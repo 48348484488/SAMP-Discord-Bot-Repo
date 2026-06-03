@@ -7,6 +7,28 @@ export default {
       return new Response('Not Found', { status: 404 });
     }
 
+    const url = new URL(request.url);
+    if (url.pathname === '/build-callback') {
+      const authHeader = request.headers.get('Authorization');
+      if (!authHeader || authHeader !== `Bearer ${env.DISCORD_BOT_TOKEN}`) {
+        console.log('Build callback: Unauthorized attempt');
+        return new Response('Unauthorized', { status: 401 });
+      }
+      try {
+        const payload = await request.json();
+        const { user_id } = payload;
+        if (user_id) {
+          await env.TICKETS.delete(`build_lock:${user_id}`);
+          console.log(`Build callback: Released lock for user ${user_id}`);
+          return new Response('OK', { status: 200 });
+        }
+        return new Response('Bad Request: Missing user_id', { status: 400 });
+      } catch (err) {
+        console.error('Error in build-callback:', err);
+        return new Response('Internal Server Error', { status: 500 });
+      }
+    }
+
     const signature = request.headers.get('x-signature-ed25519');
     const timestamp = request.headers.get('x-signature-timestamp');
     const body = await request.clone().text();
@@ -43,6 +65,19 @@ export default {
           });
         }
 
+        const userId = interaction.member?.user?.id || interaction.user?.id;
+        const lockKey = `build_lock:${userId}`;
+        const existingLock = await env.TICKETS.get(lockKey);
+        if (existingLock) {
+          return Response.json({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: { content: '⚠️ **Compilação em andamento!** Você já possui uma compilação ativa. Por favor, aguarde a conclusão antes de iniciar uma nova.' }
+          });
+        }
+
+        await env.TICKETS.put(lockKey, 'active', { expirationTtl: 3600 });
+
+        const workerUrl = new URL(request.url).origin;
         const githubUrl = `https://api.github.com/repos/${env.GITHUB_USER}/${env.GITHUB_REPO}/actions/workflows/engine.yml/dispatches`;
 
         ctx.waitUntil(
@@ -57,9 +92,20 @@ export default {
               ref: 'main',
               inputs: {
                 zip_url: zipUrl.trim(),
-                channel_id: interaction.channel_id
+                channel_id: interaction.channel_id,
+                user_id: userId,
+                worker_url: workerUrl
               }
             })
+          }).then(async (res) => {
+            if (!res.ok) {
+              const errText = await res.text();
+              console.error(`Erro ao disparar Action: ${errText}`);
+              await env.TICKETS.delete(lockKey);
+            }
+          }).catch(async (err) => {
+            console.error('Erro de rede ao disparar GitHub Actions', err);
+            await env.TICKETS.delete(lockKey);
           })
         );
 
@@ -266,6 +312,19 @@ export default {
 
       // Clique em "Compilar APK" dentro do Ticket
       if (custom_id === 'compilar_apk') {
+        const userId = interaction.member?.user?.id || interaction.user?.id;
+        const lockKey = `build_lock:${userId}`;
+        const existingLock = await env.TICKETS.get(lockKey);
+        if (existingLock) {
+          return Response.json({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              flags: 64, // Ephemeral
+              content: '⚠️ **Compilação em andamento!** Você já possui uma compilação ativa. Por favor, aguarde a conclusão antes de iniciar uma nova.'
+            }
+          });
+        }
+
         // Retorna o Modal pedindo a URL da source e a senha
         return Response.json({
           type: 9, // MODAL
@@ -350,6 +409,21 @@ export default {
           });
         }
 
+        const userId = interaction.member?.user?.id || interaction.user?.id;
+        const lockKey = `build_lock:${userId}`;
+        const existingLock = await env.TICKETS.get(lockKey);
+        if (existingLock) {
+          return Response.json({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: '⚠️ **Compilação em andamento!** Você já possui uma compilação ativa. Por favor, aguarde a conclusão antes de iniciar uma nova.'
+            }
+          });
+        }
+
+        await env.TICKETS.put(lockKey, 'active', { expirationTtl: 3600 });
+
+        const workerUrl = new URL(request.url).origin;
         const githubUrl = `https://api.github.com/repos/${env.GITHUB_USER}/${env.GITHUB_REPO}/actions/workflows/engine.yml/dispatches`;
 
         // Dispara o GitHub Actions em background
@@ -366,16 +440,20 @@ export default {
               inputs: {
                 zip_url: zipUrl.trim(),
                 zip_password: zipPassword.trim(),
-                channel_id: interaction.channel_id
+                channel_id: interaction.channel_id,
+                user_id: userId,
+                worker_url: workerUrl
               }
             })
           }).then(async (res) => {
             if (!res.ok) {
               const errText = await res.text();
               console.error(`Erro ao disparar Action: ${errText}`);
+              await env.TICKETS.delete(lockKey);
             }
-          }).catch(err => {
+          }).catch(async (err) => {
             console.error('Erro de rede ao disparar GitHub Actions', err);
+            await env.TICKETS.delete(lockKey);
           })
         );
 

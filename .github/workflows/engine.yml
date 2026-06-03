@@ -15,6 +15,14 @@ on:
         description: 'ID do canal privado (ticket) para entregar o APK'
         required: true
         type: string
+      user_id:
+        description: 'ID do usuário que solicitou a compilação'
+        required: false
+        type: string
+      worker_url:
+        description: 'URL do Worker para callback de finalização'
+        required: false
+        type: string
 
 jobs:
   build:
@@ -274,3 +282,20 @@ jobs:
                -H "Authorization: Bot ${{ secrets.DISCORD_BOT_TOKEN }}" \
                -d "{\"content\": \"$MESSAGE\"}" \
                https://discord.com/api/v10/channels/${{ github.event.inputs.channel_id }}/messages
+
+      # 10. Liberar trava de estado no Worker
+      - name: Liberar Trava no Worker
+        if: always()
+        run: |
+          USER_ID="${{ github.event.inputs.user_id }}"
+          WORKER_URL="${{ github.event.inputs.worker_url }}"
+          if [ -n "$USER_ID" ] && [ -n "$WORKER_URL" ]; then
+            echo "Notificando Worker para liberar a trava do usuário $USER_ID..."
+            curl -s -X POST \
+                 -H "Content-Type: application/json" \
+                 -H "Authorization: Bearer ${{ secrets.DISCORD_BOT_TOKEN }}" \
+                 -d "{\"user_id\": \"$USER_ID\"}" \
+                 "$WORKER_URL/build-callback"
+          else
+            echo "User ID ou Worker URL ausente. Pulando liberação da trava."
+          fi
