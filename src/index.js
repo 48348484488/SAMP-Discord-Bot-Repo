@@ -75,7 +75,7 @@ export default {
           });
         }
 
-        await env.TICKETS.put(lockKey, 'active', { expirationTtl: 3600 });
+        await env.TICKETS.put(lockKey, 'active', { expirationTtl: 2400 });
 
         const workerUrl = new URL(request.url).origin;
         const githubUrl = `https://api.github.com/repos/${env.GITHUB_USER}/${env.GITHUB_REPO}/actions/workflows/engine.yml/dispatches`;
@@ -113,6 +113,53 @@ export default {
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
             content: `💻 **COMPILAÇÃO INICIADA!**\n\n📡 Conectando aos servidores do GitHub...\n🔗 **Source Code:** ${zipUrl}\n\n_Quando a compilação terminar (em média 15 a 40 minutos), enviarei o link do APK final aqui mesmo neste canal!_`
+          }
+        });
+      }
+
+      // Novo comando /destravar (Libera a trava de um usuário ou dele mesmo)
+      if (name === 'destravar') {
+        const usuarioOption = options && options.find(opt => opt.name === 'usuario');
+        const targetUserId = usuarioOption ? usuarioOption.value : null;
+
+        const callerId = interaction.member?.user?.id || interaction.user?.id;
+        
+        if (targetUserId && targetUserId !== callerId) {
+          const permissions = interaction.member?.permissions;
+          const isAdmin = permissions && (BigInt(permissions) & 8n) === 8n;
+          if (!isAdmin) {
+            return Response.json({
+              type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                flags: 64, // Ephemeral
+                content: '❌ **Erro de Permissão:** Apenas administradores podem destravar a compilação de outros usuários.'
+              }
+            });
+          }
+        }
+
+        const finalUserId = targetUserId || callerId;
+        const lockKey = `build_lock:${finalUserId}`;
+        const existingLock = await env.TICKETS.get(lockKey);
+
+        if (!existingLock) {
+          return Response.json({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              flags: 64, // Ephemeral
+              content: targetUserId 
+                ? `❌ O usuário <@${finalUserId}> não possui nenhuma trava de compilação ativa.` 
+                : '❌ Você não possui nenhuma trava de compilação ativa.'
+            }
+          });
+        }
+
+        await env.TICKETS.delete(lockKey);
+
+        return Response.json({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: `🔓 **TRAVA LIBERADA!** A trava de compilação do usuário <@${finalUserId}> foi removida e ele já pode iniciar um novo build.`
           }
         });
       }
@@ -421,7 +468,7 @@ export default {
           });
         }
 
-        await env.TICKETS.put(lockKey, 'active', { expirationTtl: 3600 });
+        await env.TICKETS.put(lockKey, 'active', { expirationTtl: 2400 });
 
         const workerUrl = new URL(request.url).origin;
         const githubUrl = `https://api.github.com/repos/${env.GITHUB_USER}/${env.GITHUB_REPO}/actions/workflows/engine.yml/dispatches`;

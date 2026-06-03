@@ -29,6 +29,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 0. Inicializar Status no Discord
+      - name: Inicializar Status no Discord
+        run: |
+          CHECKLIST="📡 **Conectando aos servidores do GitHub...**\n\n**Progresso da Compilação:**\n- [ ] Baixar e extrair Source Code 📂\n- [ ] Configurar SDK & Dependências ⚙️\n- [ ] Compilar APK (Debug) 🛠️\n- [ ] Fazer Upload do APK final 📦"
+          RESPONSE=$(curl -s -H "Content-Type: application/json" \
+               -H "Authorization: Bot ${{ secrets.DISCORD_BOT_TOKEN }}" \
+               -d "{\"content\": \"$CHECKLIST\"}" \
+               https://discord.com/api/v10/channels/${{ github.event.inputs.channel_id }}/messages)
+          MESSAGE_ID=$(echo "$RESPONSE" | python3 -c "import sys, json; print(json.loads(sys.stdin.read()).get('id', ''))" 2>/dev/null || echo "")
+          echo "STATUS_MESSAGE_ID=$MESSAGE_ID" >> $GITHUB_ENV
+          echo "Status message ID: $MESSAGE_ID"
+
       # 1. O Script Inteligente de Download e Extração
       - name: Baixar e Extrair Source Code
         run: |
@@ -144,6 +156,14 @@ jobs:
           echo "SOURCE CODE CONFIGURADA E PRONTA PARA COMPILAR"
           echo "=============================================="
 
+          if [ -n "$STATUS_MESSAGE_ID" ]; then
+            CHECKLIST="📂 **Source Code baixada e extraída com sucesso!**\n\n**Progresso da Compilação:**\n- [x] Baixar e extrair Source Code 📂\n- [/] Configurar SDK & Dependências ⚙️\n- [ ] Compilar APK (Debug) 🛠️\n- [ ] Fazer Upload do APK final 📦"
+            curl -s -X PATCH -H "Content-Type: application/json" \
+                 -H "Authorization: Bot ${{ secrets.DISCORD_BOT_TOKEN }}" \
+                 -d "{\"content\": \"$CHECKLIST\"}" \
+                 https://discord.com/api/v10/channels/${{ github.event.inputs.channel_id }}/messages/$STATUS_MESSAGE_ID || true
+          fi
+
       # 2. Configurar o Java
       - name: Configurar JDK 17
         uses: actions/setup-java@v4
@@ -167,6 +187,17 @@ jobs:
           key: ndk-cache-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             ndk-cache-${{ runner.os }}-
+
+      # 5.5. Atualizar Status - Iniciando Compilação
+      - name: Atualizar Status - Iniciando Compilação
+        run: |
+          if [ -n "$STATUS_MESSAGE_ID" ]; then
+            CHECKLIST="⚙️ **Ambiente configurado!** Iniciando a compilação do APK (isso pode levar de 15 a 40 minutos)...\n\n**Progresso da Compilação:**\n- [x] Baixar e extrair Source Code 📂\n- [x] Configurar SDK & Dependências ⚙️\n- [/] Compilar APK (Debug) 🛠️\n- [ ] Fazer Upload do APK final 📦"
+            curl -s -X PATCH -H "Content-Type: application/json" \
+                 -H "Authorization: Bot ${{ secrets.DISCORD_BOT_TOKEN }}" \
+                 -d "{\"content\": \"$CHECKLIST\"}" \
+                 https://discord.com/api/v10/channels/${{ github.event.inputs.channel_id }}/messages/$STATUS_MESSAGE_ID || true
+          fi
 
       # 6. Compilar o Projeto com controle de memória (Prevenção de OOM)
       - name: Compilar APK (Debug)
@@ -217,6 +248,18 @@ jobs:
           name: Launcher-APK
           path: '**/*.apk'
           if-no-files-found: error # Força a action a falhar se não achar o APK, evitando o "falso positivo"
+
+      # 7.5. Atualizar Status - Iniciando Upload
+      - name: Atualizar Status - Iniciando Upload
+        if: success()
+        run: |
+          if [ -n "$STATUS_MESSAGE_ID" ]; then
+            CHECKLIST="🛠️ **Compilação concluída com sucesso!** Iniciando o upload do APK...\n\n**Progresso da Compilação:**\n- [x] Baixar e extrair Source Code 📂\n- [x] Configurar SDK & Dependências ⚙️\n- [x] Compilar APK (Debug) 🛠️\n- [/] Fazer Upload do APK final 📦"
+            curl -s -X PATCH -H "Content-Type: application/json" \
+                 -H "Authorization: Bot ${{ secrets.DISCORD_BOT_TOKEN }}" \
+                 -d "{\"content\": \"$CHECKLIST\"}" \
+                 https://discord.com/api/v10/channels/${{ github.event.inputs.channel_id }}/messages/$STATUS_MESSAGE_ID || true
+          fi
 
       # 8. Fazer Upload para Link de Download Direto
       - name: Upload Direto do APK
@@ -273,15 +316,22 @@ jobs:
         if: always()
         run: |
           if [ "${{ job.status }}" == "success" ]; then
-            MESSAGE="✅ **O SEU APK ESTÁ PRONTO!**\n\n🔗 **Link de Download Direto:**\n<${{ env.DOWNLOAD_URL }}>\n\n_(Este link permite baixar o APK diretamente no celular)_\n\nAssim que você baixar, pode fechar este ticket."
+            CHECKLIST="✅ **O SEU APK ESTÁ PRONTO!**\n\n**Progresso da Compilação:**\n- [x] Baixar e extrair Source Code 📂\n- [x] Configurar SDK & Dependências ⚙️\n- [x] Compilar APK (Debug) 🛠️\n- [x] Fazer Upload do APK final 📦\n\n🔗 **Link de Download Direto:**\n<${{ env.DOWNLOAD_URL }}>\n\n_(Este link permite baixar o APK diretamente no celular)_\n\nAssim que você baixar, pode fechar este ticket."
           else
-            MESSAGE="❌ **FALHA NA COMPILAÇÃO!**\nO GitHub Actions encontrou um erro no código C/C++. Verifique os logs em: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}>"
+            CHECKLIST="❌ **FALHA NA COMPILAÇÃO!**\n\n**Progresso da Compilação:**\n- [x] Baixar e extrair Source Code 📂\n- [x] Configurar SDK & Dependências ⚙️\n- [x] Compilar APK (Debug) - **FALHOU** ❌\n- [ ] Fazer Upload do APK final - **Cancelado** 🚫\n\nO GitHub Actions encontrou um erro no código C/C++. Verifique os logs em: <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}>"
           fi
           
-          curl -H "Content-Type: application/json" \
-               -H "Authorization: Bot ${{ secrets.DISCORD_BOT_TOKEN }}" \
-               -d "{\"content\": \"$MESSAGE\"}" \
-               https://discord.com/api/v10/channels/${{ github.event.inputs.channel_id }}/messages
+          if [ -n "$STATUS_MESSAGE_ID" ]; then
+            curl -s -X PATCH -H "Content-Type: application/json" \
+                 -H "Authorization: Bot ${{ secrets.DISCORD_BOT_TOKEN }}" \
+                 -d "{\"content\": \"$CHECKLIST\"}" \
+                 https://discord.com/api/v10/channels/${{ github.event.inputs.channel_id }}/messages/$STATUS_MESSAGE_ID
+          else
+            curl -s -H "Content-Type: application/json" \
+                 -H "Authorization: Bot ${{ secrets.DISCORD_BOT_TOKEN }}" \
+                 -d "{\"content\": \"$CHECKLIST\"}" \
+                 https://discord.com/api/v10/channels/${{ github.event.inputs.channel_id }}/messages
+          fi
 
       # 10. Liberar trava de estado no Worker
       - name: Liberar Trava no Worker
