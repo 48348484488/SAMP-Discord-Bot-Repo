@@ -112,7 +112,7 @@ export default {
         return Response.json({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
-            content: `💻 **COMPILAÇÃO INICIADA!**\n\n📡 Conectando aos servidores do GitHub...\n🔗 **Source Code:** ${zipUrl}\n\n_Quando a compilação terminar (em média 15 a 40 minutos), enviarei o link do APK final aqui mesmo neste canal!_`
+            content: `💻 **COMPILAÇÃO INICIADA!**\n\n📡 Conectando aos servidores do GitHub...\n🔗 **Source Code:** ${zipUrl}\n\n_Quando a compilação terminar (em média 5 a 15 minutos), enviarei o link do APK final aqui mesmo neste canal!_`
           }
         });
       }
@@ -248,7 +248,14 @@ export default {
                 return; // Interrompe a criação de um novo ticket
               }
 
-              ticketNumber = activeTickets.length + 1;
+              const counterVal = await env.TICKETS.get('ticket_counter');
+              if (counterVal) {
+                ticketNumber = parseInt(counterVal) + 1;
+              }
+              while (activeTickets.some(c => c.name.includes(`compilar-${ticketNumber}`) || c.name.includes(`ᴄᴏᴍᴘɪʟᴀʀ-${ticketNumber}`))) {
+                ticketNumber++;
+              }
+              await env.TICKETS.put('ticket_counter', ticketNumber.toString());
             }
 
             // Criação do Canal Privado via Discord REST API
@@ -507,7 +514,7 @@ export default {
         return Response.json({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
-            content: `💻 **COMPILAÇÃO INICIADA!**\n\n📡 Conectando aos servidores do GitHub...\n🔗 **Source Code:** <${zipUrl}>\n\n_Quando a compilação terminar (em média 15 a 40 minutos), enviarei o link do APK final aqui mesmo neste canal!_`
+            content: `💻 **COMPILAÇÃO INICIADA!**\n\n📡 Conectando aos servidores do GitHub...\n🔗 **Source Code:** <${zipUrl}>\n\n_Quando a compilação terminar (em média 5 a 15 minutos), enviarei o link do APK final aqui mesmo neste canal!_`
           }
         });
       }

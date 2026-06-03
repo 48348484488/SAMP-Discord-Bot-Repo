@@ -192,7 +192,7 @@ jobs:
       - name: Atualizar Status - Iniciando Compilação
         run: |
           if [ -n "$STATUS_MESSAGE_ID" ]; then
-            CHECKLIST="🛠️ **Status Atual:** Compilando o APK (Esta etapa costuma levar de 15 a 40 minutos, aguarde)...\n\n**Progresso da Compilação:**\n✅ Baixar e extrair Source Code 📂\n✅ Configurar SDK & Dependências ⚙️\n🔄 Compilar APK (Debug) 🛠️\n⚪ Fazer Upload do APK final 📦"
+            CHECKLIST="🛠️ **Status Atual:** Compilando o APK (Esta etapa costuma levar de 5 a 15 minutos, aguarde)...\n\n**Progresso da Compilação:**\n✅ Baixar e extrair Source Code 📂\n✅ Configurar SDK & Dependências ⚙️\n🔄 Compilar APK (Debug) 🛠️\n⚪ Fazer Upload do APK final 📦"
             curl -s -X PATCH -H "Content-Type: application/json" \
                  -H "Authorization: Bot ${{ secrets.DISCORD_BOT_TOKEN }}" \
                  -d "{\"content\": \"$CHECKLIST\"}" \
